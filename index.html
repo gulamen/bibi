@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+<meta charset="utf-8"/>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=yes"/>
+<title>Biblox</title>
+<link rel="shortcut icon" href="TemplateData/favicon.ico"/>
+<link rel="stylesheet" href="TemplateData/style.css"/>
+<link rel="manifest" href="manifest.webmanifest"/>
+</head>
+<body>
+
+<div id="unity-container">
+    <canvas id="unity-canvas" tabindex="-1"></canvas>
+    <div id="unity-loading-bar">
+        <div id="unity-logo"></div>
+        <div id="unity-progress-bar-empty">
+            <div id="unity-progress-bar-full"></div>
+        </div>
+    </div>
+</div>
+
+<!-- unityApp.js önce yükle — içindeki applyCommonFixes, tryRotationLock, tryLockAspectRatio çalışsın -->
+<script src="unityApp.js"></script>
+
+<script>
+/* ============================================================
+   PART LOADER — unityApp.startLoading'i override eder
+   .gz dosyalar Blob olarak birleştirilir, application/gzip tipi
+   verilir ki Unity decompress edebilsin
+   ============================================================ */
+
+const BUILD_URL  = "Build";
+const DATA_FILE  = "Zciblox9999999999999999999997.data.gz";
+const WASM_FILE  = "Zciblox9999999999999999999997.wasm.gz";
+const DATA_PARTS = 6;
+const WASM_PARTS = 4;
+
+const progressBarFull = document.querySelector("#unity-progress-bar-full");
+const loadingBar      = document.querySelector("#unity-loading-bar");
+const canvas          = document.querySelector("#unity-canvas");
+
+function setProgress(pct) {
+    if (progressBarFull) progressBarFull.style.width = Math.min(pct, 100) + "%";
+}
+
+async function fetchParts(filename, count, startPct, endPct) {
+    const step   = (endPct - startPct) / count;
+    const chunks = [];
+    for (let i = 0; i < count; i++) {
+        const resp = await fetch(`${BUILD_URL}/${filename}.part${i}`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status} - ${BUILD_URL}/${filename}.part${i}`);
+        chunks.push(new Uint8Array(await resp.arrayBuffer()));
+        setProgress(Math.round(startPct + step * (i + 1)));
+    }
+    const total  = chunks.reduce((s, c) => s + c.length, 0);
+    const merged = new Uint8Array(total);
+    let offset = 0;
+    for (const c of chunks) { merged.set(c, offset); offset += c.length; }
+    /* application/gzip — Unity loader .gz dosyasını decompress eder */
+    return URL.createObjectURL(new Blob([merged], { type: 'application/gzip' }));
+}
+
+/* unityApp.startLoading'i Blob URL versiyonuyla değiştir */
+unityApp.startLoading = async function () {
+    try {
+        if (loadingBar) loadingBar.style.display = "block";
+        setProgress(2);
+
+        const [dataUrl, wasmUrl] = await Promise.all([
+            fetchParts(DATA_FILE, DATA_PARTS, 2,  50),
+            fetchParts(WASM_FILE, WASM_PARTS, 50, 88),
+        ]);
+
+        setProgress(92);
+
+        const config = {
+            arguments:          [],
+            dataUrl:            dataUrl,
+            frameworkUrl:       `${BUILD_URL}/Zciblox9999999999999999999997.framework.js.gz`,
+            codeUrl:            wasmUrl,
+            streamingAssetsUrl: "StreamingAssets",
+            companyName:        "DefaultCompany",
+            productName:        "Biblox",
+            productVersion:     "0.1",
+            showBanner: (msg, type) => {
+                type === 'error' ? console.error(msg) : console.warn(msg);
+            },
+        };
+
+        const loaderScript  = document.createElement("script");
+        loaderScript.src    = `${BUILD_URL}/Zciblox9999999999999999999997.loader.js`;
+        loaderScript.onload = () => {
+            createUnityInstance(canvas, config, (progress) => {
+                setProgress(Math.round(88 + progress * 10));
+            }).then(() => {
+                if (loadingBar) loadingBar.style.display = "none";
+            }).catch(e => {
+                console.error(e);
+                alert(e);
+            });
+        };
+        document.body.appendChild(loaderScript);
+
+    } catch (err) {
+        console.error("Yukleme hatasi:", err);
+        if (progressBarFull) progressBarFull.textContent = "Hata: " + err.message;
+    }
+};
+
+/* unityApp.js'in son satırındaki startLoading() çağrısı zaten çalıştı
+   ama biz override ettik — manuel tetikle */
+unityApp.startLoading();
+</script>
+</body>
+</html>
