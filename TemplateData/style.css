@@ -23,7 +23,7 @@ html, body {
     /* BACKGROUND BEHIND UNITY CONTAINER */
     background-position: center center;
     background-size: cover;
-    background-image: url('../gameBackground.png');
+    background-image: url('https://cdn.jsdelivr.net/gh/gulamen/bibi@main/background.png');
 }
 
 img {
@@ -80,7 +80,7 @@ img {
     background-repeat: no-repeat;
     background-position: center center;
     background-size: cover;
-    background-image: url('../gameIcon.png');
+    background-image: url('https://cdn.jsdelivr.net/gh/gulamen/bibi@main/logo.png');
     border-radius: 5px;
 }
 
